@@ -1,198 +1,48 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Phishing Detector</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      width: 340px;
-      min-height: 200px;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #0f1117;
-      color: #ecf0f1;
-    }
-
-    /* ── Header ── */
-    .header {
-      background: #1a1d27;
-      padding: 16px 20px;
-      border-bottom: 1px solid #2c3e50;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .header-icon {
-      width: 32px; height: 32px;
-      background: #e74c3c;
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 16px;
-    }
-    .header h1 { font-size: 15px; font-weight: 600; color: #ecf0f1; }
-    .header p  { font-size: 11px; color: #7f8c8d; margin-top: 1px; }
-
-    /* ── Corps principal ── */
-    .body { padding: 18px 20px; }
-
-    /* ── Bouton analyser ── */
-    #btn-analyze {
-      width: 100%;
-      padding: 12px;
-      background: #3498db;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s, transform 0.1s;
-    }
-    #btn-analyze:hover  { background: #2980b9; }
-    #btn-analyze:active { transform: scale(0.98); }
-    #btn-analyze:disabled { background: #2c3e50; color: #7f8c8d; cursor: not-allowed; }
-
-    /* ── Zone de résultat ── */
-    #result { margin-top: 16px; display: none; }
-
-    .result-card {
-      border-radius: 10px;
-      padding: 14px 16px;
-      border: 1px solid transparent;
-    }
-    .result-card.phishing {
-      background: rgba(231,76,60,0.12);
-      border-color: rgba(231,76,60,0.4);
-    }
-    .result-card.legit {
-      background: rgba(46,204,113,0.1);
-      border-color: rgba(46,204,113,0.35);
-    }
-    .result-card.error {
-      background: rgba(243,156,18,0.1);
-      border-color: rgba(243,156,18,0.35);
-    }
-
-    .result-top {
-      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
-    }
-    .result-badge {
-      font-size: 22px;
-    }
-    .result-label {
-      font-size: 16px; font-weight: 700;
-    }
-    .result-card.phishing .result-label { color: #e74c3c; }
-    .result-card.legit    .result-label { color: #2ecc71; }
-    .result-card.error    .result-label { color: #f39c12; }
-
-    /* ── Score bar ── */
-    .score-section { margin-bottom: 10px; }
-    .score-label {
-      font-size: 11px; color: #7f8c8d;
-      display: flex; justify-content: space-between;
-      margin-bottom: 4px;
-    }
-    .score-bar {
-      height: 6px; background: #2c3e50; border-radius: 3px; overflow: hidden;
-    }
-    .score-fill {
-      height: 100%; border-radius: 3px;
-      transition: width 0.6s ease;
-    }
-    .phishing .score-fill { background: #e74c3c; }
-    .legit    .score-fill { background: #2ecc71; }
-
-    /* ── Signaux ── */
-    .signals-title {
-      font-size: 11px; color: #7f8c8d; margin-bottom: 6px; font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.5px;
-    }
-    .signals-list { display: flex; flex-wrap: wrap; gap: 5px; }
-    .signal-tag {
-      font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 5px;
-      background: rgba(231,76,60,0.2);
-      color: #e74c3c;
-      border: 1px solid rgba(231,76,60,0.3);
-    }
-    .signal-tag.neutral {
-      background: rgba(52,152,219,0.15);
-      color: #3498db;
-      border-color: rgba(52,152,219,0.3);
-    }
-
-    /* ── Email extrait ── */
-    .email-preview {
-      margin-top: 10px;
-      padding: 8px 10px;
-      background: #0f1117;
-      border-radius: 6px;
-      border: 1px solid #2c3e50;
-    }
-    .email-preview .ep-label {
-      font-size: 10px; color: #7f8c8d; text-transform: uppercase;
-      letter-spacing: 0.5px; margin-bottom: 3px;
-    }
-    .email-preview .ep-text {
-      font-size: 12px; color: #bdc3c7;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-
-    /* ── Loading spinner ── */
-    .spinner {
-      display: inline-block;
-      width: 14px; height: 14px;
-      border: 2px solid rgba(255,255,255,0.2);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: middle; margin-right: 6px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── Footer ── */
-    .footer {
-      padding: 10px 20px;
-      border-top: 1px solid #2c3e50;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .footer span { font-size: 10px; color: #7f8c8d; }
-    #status-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: #7f8c8d; display: inline-block;
-      margin-right: 5px; vertical-align: middle;
-      transition: background 0.3s;
-    }
-    #status-dot.online  { background: #2ecc71; }
-    #status-dot.offline { background: #e74c3c; }
-  </style>
+  <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
 
-  <div class="header">
-    <div class="header-icon">&#128274;</div>
-    <div>
-      <h1>Phishing Detector</h1>
-      <p>Analyse par SVM + Feature Engineering</p>
+  <!-- ── En-tête ────────────────────────────────── -->
+  <header class="header">
+    <div class="header__icon" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <rect x="3" y="11" width="18" height="11" rx="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
     </div>
-  </div>
+    <div class="header__text">
+      <h1 class="header__title">Phishing Detector</h1>
+      <p class="header__subtitle">SVM + Feature Engineering</p>
+    </div>
+  </header>
 
-  <div class="body">
-    <button id="btn-analyze" onclick="analyzeEmail()">
+  <!-- ── Corps principal ───────────────────────── -->
+  <main class="main">
+    <button id="btn-analyze" class="btn btn--primary" type="button">
       Analyser cet email
     </button>
 
-    <div id="result"></div>
-  </div>
+    <!-- Zone résultat (cachée par défaut via CSS) -->
+    <section id="result" class="result" aria-live="polite" aria-atomic="true">
+      <!-- Injecté dynamiquement par popup.js -->
+    </section>
+  </main>
 
-  <div class="footer">
-    <span><span id="status-dot"></span><span id="status-text">Vérification...</span></span>
-    <span id="model-info">SVM v1.0</span>
-  </div>
+  <!-- ── Pied de page ──────────────────────────── -->
+  <footer class="footer">
+    <span class="footer__status">
+      <span id="status-dot" class="status-dot" aria-hidden="true"></span>
+      <span id="status-text">Vérification...</span>
+    </span>
+    <span id="model-info" class="footer__model">SVM v1.0</span>
+  </footer>
 
   <script src="popup.js"></script>
 </body>

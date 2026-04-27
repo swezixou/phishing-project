@@ -1,33 +1,34 @@
 {
   "manifest_version": 3,
   "name": "Phishing Detector",
-  "version": "1.0",
-  "description": "Détecte les emails de phishing avec un modèle SVM",
+  "version": "1.0.0",
+  "description": "Analyse les emails et détecte le phishing via un modèle SVM.",
+
   "permissions": [
     "activeTab",
     "scripting"
   ],
+
   "host_permissions": [
     "http://localhost:8000/*"
   ],
+
   "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png"
-    }
+    "default_popup": "popup.html"
   },
+
+
+
   "content_scripts": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content.js"
-      ]
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
     }
   ],
+
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   }
 }
