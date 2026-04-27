@@ -1,0 +1,336 @@
+/* ═══════════════════════════════════════════════
+   popup.css — Phishing Detector Extension
+   Principe : BEM (Block__Element--Modifier)
+   Palette  : dark theme cohérent avec le dashboard
+   ═══════════════════════════════════════════════ */
+
+/* ── Variables ──────────────────────────────── */
+:root {
+  --color-bg-base:       #0f1117;
+  --color-bg-surface:    #1a1d27;
+  --color-bg-elevated:   #22263a;
+  --color-border:        #2c3e50;
+  --color-border-hover:  #3d5166;
+
+  --color-text-primary:  #ecf0f1;
+  --color-text-secondary:#bdc3c7;
+  --color-text-muted:    #7f8c8d;
+
+  --color-phishing:      #e74c3c;
+  --color-phishing-bg:   rgba(231, 76, 60, 0.12);
+  --color-phishing-border: rgba(231, 76, 60, 0.40);
+
+  --color-legit:         #2ecc71;
+  --color-legit-bg:      rgba(46, 204, 113, 0.10);
+  --color-legit-border:  rgba(46, 204, 113, 0.35);
+
+  --color-warning:       #f39c12;
+  --color-warning-bg:    rgba(243, 156, 18, 0.10);
+  --color-warning-border:rgba(243, 156, 18, 0.35);
+
+  --color-accent:        #3498db;
+  --color-accent-hover:  #2980b9;
+
+  --radius-sm:  6px;
+  --radius-md:  8px;
+  --radius-lg:  10px;
+
+  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Reset minimal ──────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Base ───────────────────────────────────── */
+body {
+  width: 340px;
+  min-height: 180px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+}
+
+/* ── Header ─────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.header__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: var(--color-phishing);
+  border-radius: var(--radius-md);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.header__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.header__subtitle {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* ── Main ───────────────────────────────────── */
+.main {
+  padding: 16px 18px;
+}
+
+/* ── Bouton ─────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.btn--primary {
+  width: 100%;
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.btn--primary:hover  { background: var(--color-accent-hover); }
+.btn--primary:active { transform: scale(0.98); }
+
+.btn--primary:disabled {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Spinner (injecté dans le bouton par JS) ── */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Zone résultat ──────────────────────────── */
+.result {
+  margin-top: 14px;
+  display: none; /* affiché par JS */
+}
+
+.result--visible {
+  display: block;
+}
+
+/* ── Carte résultat ─────────────────────────── */
+.result-card {
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
+}
+
+.result-card--phishing {
+  background: var(--color-phishing-bg);
+  border-color: var(--color-phishing-border);
+}
+
+.result-card--legit {
+  background: var(--color-legit-bg);
+  border-color: var(--color-legit-border);
+}
+
+.result-card--error {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+}
+
+/* ── En-tête de la carte ────────────────────── */
+.result-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.result-card__icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.result-card__label {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.result-card--phishing .result-card__label { color: var(--color-phishing); }
+.result-card--legit    .result-card__label { color: var(--color-legit);    }
+.result-card--error    .result-card__label { color: var(--color-warning);  }
+
+/* ── Barre de score ─────────────────────────── */
+.score-section {
+  margin-bottom: 12px;
+}
+
+.score-section__labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-bottom: 5px;
+}
+
+.score-bar {
+  height: 5px;
+  background: var(--color-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.score-bar__fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.result-card--phishing .score-bar__fill { background: var(--color-phishing); }
+.result-card--legit    .score-bar__fill { background: var(--color-legit);    }
+
+/* ── Tags signaux ───────────────────────────── */
+.signals__title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 7px;
+}
+
+.signals__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.signal-tag {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 5px;
+}
+
+.signal-tag--danger {
+  background: rgba(231, 76, 60, 0.18);
+  color: #e74c3c;
+  border: 1px solid rgba(231, 76, 60, 0.30);
+}
+
+.signal-tag--info {
+  background: rgba(52, 152, 219, 0.15);
+  color: var(--color-accent);
+  border: 1px solid rgba(52, 152, 219, 0.28);
+}
+
+/* ── Aperçu du sujet ────────────────────────── */
+.email-preview {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: var(--color-bg-base);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.email-preview__label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+}
+
+.email-preview__text {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Message d'erreur ───────────────────────── */
+.error-message {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+.error-message__hint {
+  color: var(--color-text-muted);
+  margin-top: 3px;
+}
+
+/* ── Footer ─────────────────────────────────── */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 18px;
+  border-top: 1px solid var(--color-border);
+}
+
+.footer__status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.footer__model {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* ── Point de statut ────────────────────────── */
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  flex-shrink: 0;
+  transition: background 0.3s ease;
+}
+
+.status-dot--online  { background: var(--color-legit);   }
+.status-dot--offline { background: var(--color-phishing); }
