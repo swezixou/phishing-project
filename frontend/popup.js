@@ -9,7 +9,7 @@ const btnAnalyze  = document.getElementById("btn-analyze");
 const resultEl    = document.getElementById("result");
 const statusDot   = document.getElementById("status-dot");
 const statusText  = document.getElementById("status-text");
-const modelInfo   = document.getElementById("model-info");
+
 
 // ── Vérifie que le backend est en ligne au chargement ────────
 async function checkBackendStatus() {
@@ -19,7 +19,7 @@ async function checkBackendStatus() {
     const data = await res.json();
     statusDot.classList.add("status-dot--online");
     statusText.textContent = "Backend connecté";
-    modelInfo.textContent  = data.model_name || "SVM v1.0";
+    
   } catch {
     statusDot.classList.add("status-dot--offline");
     statusText.textContent = "Backend hors ligne";
@@ -32,9 +32,32 @@ async function analyzeEmail() {
   hideResult();
 
   try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const url   = tab.url || "";
+
+    // Vérifier qu'on est sur une page email
+    const isEmailPage = [
+      "mail.google.com",
+      "outlook.live.com",
+      "outlook.office.com",
+      "mail.yahoo.com",
+    ].some(domain => url.includes(domain));
+
+    if (!isEmailPage) {
+      renderError("Ouvre un email sur Gmail, Outlook ou Yahoo pour lancer l'analyse.");
+      return;
+    }
+
     const emailData = await extractEmailFromTab();
-    const data      = await callPredictAPI(emailData);
+
+    if (!emailData.subject && !emailData.body) {
+      renderError("Aucun email détecté. Ouvre un email avant d'analyser.");
+      return;
+    }
+
+    const data = await callPredictAPI(emailData);
     renderResult(data, emailData);
+
   } catch (err) {
     renderError(err.message);
   } finally {
@@ -75,37 +98,36 @@ async function callPredictAPI(emailData) {
 
 // ── Rendu du résultat ────────────────────────────────────────
 function renderResult(data, emailData) {
-  const isPhishing = data.label === 1;
-  const modifier   = isPhishing ? "phishing" : "legit";
-  const iconSvg    = isPhishing ? iconShield("danger") : iconShield("ok");
-  const labelText  = isPhishing ? "Phishing détecté" : "Email légitime";
+  const status   = data.status || (data.label === 1 ? "PHISHING" : "SECURISE");
+  const score    = data.score_svm ?? 0;
+  const barWidth = scoreToPercent(score);
 
-  const rawScore   = data.score_svm ?? 0;
-  const barWidth   = scoreToPercent(rawScore);
+  // Configuration selon le statut
+  const config = {
+    "PHISHING":       { modifier: "phishing",     icon: iconShield("danger"), label: "Phishing détecté",      color: "#e74c3c" },
+    "SUSPECT_HAUT":   { modifier: "suspect-haut",  icon: iconShield("warn"),   label: "Suspect — Haut risque", color: "#e67e22" },
+    "SUSPECT_FAIBLE": { modifier: "suspect-faible",icon: iconShield("warn"),   label: "Suspect — Risque faible",color: "#f39c12" },
+    "SECURISE":       { modifier: "legit",          icon: iconShield("ok"),     label: "Email sécurisé",        color: "#2ecc71" },
+  }[status] || { modifier: "legit", icon: iconShield("ok"), label: "Inconnu", color: "#7f8c8d" };
 
   resultEl.innerHTML = `
-    <div class="result-card result-card--${modifier}">
-
+    <div class="result-card result-card--${config.modifier}">
       <div class="result-card__header">
-        <span class="result-card__icon">${iconSvg}</span>
-        <span class="result-card__label">${labelText}</span>
+        <span class="result-card__icon">${config.icon}</span>
+        <span class="result-card__label" style="color:${config.color}">${config.label}</span>
       </div>
-
       <div class="score-section">
         <div class="score-section__labels">
-          <span>Score de décision SVM</span>
-          <span>${rawScore.toFixed(4)}</span>
+          <span>Score</span>
+          <span>${score.toFixed(4)}</span>
         </div>
         <div class="score-bar">
-          <div class="score-bar__fill" style="width: ${barWidth}%"></div>
+          <div class="score-bar__fill" style="width:${barWidth}%;background:${config.color}"></div>
         </div>
       </div>
-
       ${renderSignals(data.signals)}
       ${renderEmailPreview(emailData.subject)}
-
-    </div>
-  `;
+    </div>`;
 
   resultEl.classList.add("result--visible");
 }
@@ -199,12 +221,15 @@ function escapeHtml(str) {
 
 // Icônes SVG inline (évite les dépendances externes)
 function iconShield(type) {
-  const color = type === "danger" ? "#e74c3c" : "#2ecc71";
+  const colors = { danger: "#e74c3c", warn: "#f39c12", ok: "#2ecc71" };
+  const color  = colors[type] || "#7f8c8d";
   return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"
     stroke="${color}" stroke-width="2" stroke-linecap="round">
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
     ${type === "danger"
       ? '<line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'
+      : type === "warn"
+      ? '<line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'
       : '<polyline points="9 12 11 14 15 10"/>'}
   </svg>`;
 }

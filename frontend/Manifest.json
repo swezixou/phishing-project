@@ -9,6 +9,7 @@
     "scripting"
   ],
 
+
   "host_permissions": [
     "http://localhost:8000/*"
   ],
@@ -19,13 +20,18 @@
 
 
 
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
-    }
-  ],
+"content_scripts": [
+  {
+    "matches": [
+      "https://mail.google.com/*",
+      "https://outlook.live.com/*",
+      "https://outlook.office.com/*",
+      "https://mail.yahoo.com/*"
+    ],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }
+],
 
   "background": {
     "service_worker": "background.js",

@@ -334,3 +334,14 @@ body {
 
 .status-dot--online  { background: var(--color-legit);   }
 .status-dot--offline { background: var(--color-phishing); }
+
+
+.result-card--suspect-haut {
+  background: rgba(230, 126, 34, 0.12);
+  border-color: rgba(230, 126, 34, 0.40);
+}
+
+.result-card--suspect-faible {
+  background: rgba(243, 156, 18, 0.10);
+  border-color: rgba(243, 156, 18, 0.35);
+}
