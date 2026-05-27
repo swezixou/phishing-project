@@ -1,0 +1,1 @@
+default_app_config = 'phishing_api.apps.PhishingApiConfig'
