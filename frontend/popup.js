@@ -1,41 +1,102 @@
-// popup.js — Logique de l'interface utilisateur
-// Responsabilité unique : gérer les interactions de la popup
+// popup.js — CyberShield Extension Popup
+// Responsabilités :
+//   - Analyse de l'email actif via le backend Django
+//   - Affichage du dashboard résultat
+//   - Sauvegarde de chaque analyse dans chrome.storage.local
+//   - Application du thème sauvegardé
+//   - Ouverture du dashboard complet via le bouton Paramètres
 
 const API_URL    = "http://localhost:8000/api/predict/";
 const HEALTH_URL = "http://localhost:8000/api/health/";
 
+// ── Clés storage ─────────────────────────────────────────────
+const STORAGE_HISTORY   = "cs_history";
+const STORAGE_THEME     = "cs_theme";
+const STORAGE_THRESHOLD = "cs_threshold";
+
+// ── Helpers storage (chrome.storage + fallback localStorage) ─
+const store = {
+  get: (key) => new Promise((res) => {
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.local.get([key], (r) => res(r[key] ?? null));
+    } else {
+      res(JSON.parse(localStorage.getItem(key)));
+    }
+  }),
+  set: (key, val) => new Promise((res) => {
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.local.set({ [key]: val }, res);
+    } else {
+      localStorage.setItem(key, JSON.stringify(val));
+      res();
+    }
+  }),
+};
+
 // ── Éléments du DOM ──────────────────────────────────────────
-const btnAnalyze  = document.getElementById("btn-analyze");
-const resultEl    = document.getElementById("result");
-const statusDot   = document.getElementById("status-dot");
-const statusText  = document.getElementById("status-text");
+const btnAnalyze      = document.getElementById("btn-analyze");
+const btnSettings     = document.getElementById("btn-settings");
+const statusDot       = document.getElementById("status-dot");
+const statusText      = document.getElementById("status-text");
 
+// Zones d'état
+const stateIdle       = document.getElementById("state-idle");
+const stateScanning   = document.getElementById("state-scanning");
+const stateError      = document.getElementById("state-error");
+const dashboard       = document.getElementById("dashboard");
 
-// ── Vérifie que le backend est en ligne au chargement ────────
+// Dashboard — éléments
+const riskCard        = document.getElementById("risk-card");
+const riskIcon        = document.getElementById("risk-icon");
+const riskStatus      = document.getElementById("risk-status");
+const riskScore       = document.getElementById("risk-score");
+const riskBar         = document.getElementById("risk-bar");
+const riskPercent     = document.getElementById("risk-percent");
+const signalsTags     = document.getElementById("signals-tags");
+const emailSubject    = document.getElementById("email-subject");
+const svmScore        = document.getElementById("svm-score");
+const modelName       = document.getElementById("model-name");
+const errorMsg        = document.getElementById("error-msg");
+
+// ── Ouvre le dashboard dans un onglet dédié ──────────────────
+function openDashboard() {
+  if (typeof chrome !== "undefined" && chrome.runtime) {
+    chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
+  } else {
+    window.open("dashboard.html", "_blank");
+  }
+}
+
+// ── Vérifie que le backend est en ligne ──────────────────────
 async function checkBackendStatus() {
   try {
-    const res = await fetch(HEALTH_URL, { signal: AbortSignal.timeout(2000) });
+    const res = await fetch(HEALTH_URL, { signal: AbortSignal.timeout(2500) });
     if (!res.ok) throw new Error();
     const data = await res.json();
-    statusDot.classList.add("status-dot--online");
-    statusText.textContent = "Backend connecté";
-    
+    statusDot.classList.add("statusbar__dot--online");
+    statusText.textContent = "Backend: Connecté";
+    if (data.model_name) modelName.textContent = data.model_name;
   } catch {
-    statusDot.classList.add("status-dot--offline");
-    statusText.textContent = "Backend hors ligne";
+    statusDot.classList.add("statusbar__dot--offline");
+    statusText.textContent = "Backend: Hors ligne";
   }
+}
+
+// ── Applique le thème sauvegardé ──────────────────────────────
+async function applyThemeFromStorage() {
+  const theme = (await store.get(STORAGE_THEME)) || "blue";
+  document.documentElement.setAttribute("data-theme", theme);
 }
 
 // ── Analyse l'email de l'onglet actif ────────────────────────
 async function analyzeEmail() {
   setLoading(true);
-  hideResult();
+  showState("scanning");
 
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     const url   = tab.url || "";
 
-    // Vérifier qu'on est sur une page email
     const isEmailPage = [
       "mail.google.com",
       "outlook.live.com",
@@ -44,39 +105,54 @@ async function analyzeEmail() {
     ].some(domain => url.includes(domain));
 
     if (!isEmailPage) {
-      renderError("Ouvre un email sur Gmail, Outlook ou Yahoo pour lancer l'analyse.");
+      showError("Ouvre un email sur Gmail, Outlook ou Yahoo pour lancer l'analyse.");
       return;
     }
 
     const emailData = await extractEmailFromTab();
 
     if (!emailData.subject && !emailData.body) {
-      renderError("Aucun email détecté. Ouvre un email avant d'analyser.");
+      showError("Aucun email détecté. Ouvre un email avant d'analyser.");
       return;
     }
 
     const data = await callPredictAPI(emailData);
-    renderResult(data, emailData);
+    await saveAnalysis(data, emailData);
+    renderDashboard(data, emailData);
 
   } catch (err) {
-    renderError(err.message);
+    showError(err.message);
   } finally {
     setLoading(false);
   }
 }
 
+// ── Sauvegarde l'analyse dans l'historique ───────────────────
+async function saveAnalysis(data, emailData) {
+  const history = (await store.get(STORAGE_HISTORY)) || [];
+  const entry = {
+    timestamp: new Date().toISOString(),
+    subject:   emailData.subject || "",
+    score:     data.score_svm ?? 0,
+    percent:   scoreToPercent(data.score_svm ?? 0),
+    status:    data.status || (data.label === 1 ? "PHISHING" : "SECURISE"),
+    signals:   data.signals || {},
+  };
+  history.push(entry);
+  // Limite à 200 entrées
+  if (history.length > 200) history.splice(0, history.length - 200);
+  await store.set(STORAGE_HISTORY, history);
+}
+
 // ── Extrait le texte depuis le content script ────────────────
 async function extractEmailFromTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
   try {
     const response = await chrome.tabs.sendMessage(tab.id, { action: "extractEmail" });
     if (response?.subject || response?.body) return response;
   } catch {
-    // content script non disponible sur cette page (ex: page interne Chrome)
+    // content script non disponible
   }
-
-  // Fallback : titre + URL de l'onglet
   return { subject: tab.title || "", body: tab.url || "" };
 }
 
@@ -87,130 +163,131 @@ async function callPredictAPI(emailData) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(emailData),
   });
-
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || `Erreur API (${res.status})`);
   }
-
   return res.json();
 }
 
-// ── Rendu du résultat ────────────────────────────────────────
-function renderResult(data, emailData) {
+// ── Rendu du dashboard résultat ──────────────────────────────
+function renderDashboard(data, emailData) {
   const status   = data.status || (data.label === 1 ? "PHISHING" : "SECURISE");
-  const score    = data.score_svm ?? 0;
-  const barWidth = scoreToPercent(score);
+  const rawScore = data.score_svm ?? 0;
+  const percent  = scoreToPercent(rawScore);
 
-  // Configuration selon le statut
   const config = {
-    "PHISHING":       { modifier: "phishing",     icon: iconShield("danger"), label: "Phishing détecté",      color: "#e74c3c" },
-    "SUSPECT_HAUT":   { modifier: "suspect-haut",  icon: iconShield("warn"),   label: "Suspect — Haut risque", color: "#e67e22" },
-    "SUSPECT_FAIBLE": { modifier: "suspect-faible",icon: iconShield("warn"),   label: "Suspect — Risque faible",color: "#f39c12" },
-    "SECURISE":       { modifier: "legit",          icon: iconShield("ok"),     label: "Email sécurisé",        color: "#2ecc71" },
-  }[status] || { modifier: "legit", icon: iconShield("ok"), label: "Inconnu", color: "#7f8c8d" };
+    "PHISHING":       { modifier: "danger", icon: "gpp_bad",      label: "PHISHING DÉTECTÉ" },
+    "SUSPECT_HAUT":   { modifier: "warn",   icon: "gpp_maybe",    label: "SUSPECT — Risque élevé" },
+    "SUSPECT_FAIBLE": { modifier: "warn",   icon: "gpp_maybe",    label: "SUSPECT — Risque faible" },
+    "SECURISE":       { modifier: "safe",   icon: "verified_user", label: "EMAIL SÉCURISÉ" },
+  }[status] || { modifier: "danger", icon: "gpp_bad", label: "INCONNU" };
 
-  resultEl.innerHTML = `
-    <div class="result-card result-card--${config.modifier}">
-      <div class="result-card__header">
-        <span class="result-card__icon">${config.icon}</span>
-        <span class="result-card__label" style="color:${config.color}">${config.label}</span>
-      </div>
-      <div class="score-section">
-        <div class="score-section__labels">
-          <span>Score</span>
-          <span>${score.toFixed(4)}</span>
-        </div>
-        <div class="score-bar">
-          <div class="score-bar__fill" style="width:${barWidth}%;background:${config.color}"></div>
-        </div>
-      </div>
-      ${renderSignals(data.signals)}
-      ${renderEmailPreview(emailData.subject)}
-    </div>`;
+  riskCard.className   = `risk-card risk-card--${config.modifier}`;
+  riskIcon.textContent = config.icon;
+  riskStatus.textContent = config.label;
+  riskScore.textContent  = `${Math.round(percent)}%`;
+  riskBar.style.width    = `${percent}%`;
+  riskPercent.textContent = `${Math.round(percent)} / 100`;
 
-  resultEl.classList.add("result--visible");
+  emailSubject.textContent = emailData.subject
+    ? emailData.subject.substring(0, 60)
+    : "Aucun sujet détecté";
+  svmScore.textContent = rawScore.toFixed(4);
+
+  renderSignals(data.signals);
+  showState("dashboard");
 }
 
-// ── Rendu des signaux détectés ───────────────────────────────
+// ── Rendu des signaux ─────────────────────────────────────────
 function renderSignals(signals) {
-  if (!signals || Object.keys(signals).length === 0) {
-    return `
-      <p class="signals__title">Signaux détectés</p>
-      <div class="signals__list">
-        <span class="signal-tag signal-tag--info">Aucun signal suspect</span>
-      </div>`;
-  }
+  signalsTags.innerHTML = "";
 
   const SIGNAL_LABELS = {
+    num_links:              (v) => `${v} URL${v > 1 ? "s" : ""}`,
+    urgent_count:           (v) => `${v} mot${v > 1 ? "s" : ""} urgent${v > 1 ? "s" : ""}`,
     nb_urls:                (v) => `${v} URL(s)`,
     has_ip_url:             ()  => "IP dans URL",
     has_short_url:          ()  => "URL raccourcie",
-    has_suspicious_tld:     ()  => "TLD suspect (.ru, .tk…)",
+    has_suspicious_tld:     ()  => "TLD suspect",
     ratio_caps:             (v) => `Majuscules ${(v * 100).toFixed(0)}%`,
     nb_urgent_words:        (v) => `${v} mots urgents`,
-    has_credential_request: ()  => "Demande de credentials",
-    nb_exclamation:         (v) => `${v} point(s) d'exclamation`,
+    has_credential_request: ()  => "Demande credentials",
+    nb_exclamation:         (v) => `${v} exclamation(s)`,
     ratio_digits:           (v) => `Chiffres ${(v * 100).toFixed(0)}%`,
   };
 
-  const tags = Object.entries(signals)
-    .filter(([, v]) => v > 0)
-    .map(([key, val]) => {
-      const label = SIGNAL_LABELS[key]?.(val) ?? key;
-      return `<span class="signal-tag signal-tag--danger">${escapeHtml(label)}</span>`;
-    })
-    .join("");
+  const activeSignals = signals
+    ? Object.entries(signals).filter(([, v]) => v && v > 0)
+    : [];
 
-  return `
-    <p class="signals__title">Signaux détectés</p>
-    <div class="signals__list">${tags}</div>`;
+  if (activeSignals.length === 0) {
+    const tag = document.createElement("span");
+    tag.className   = "signal-tag signal-tag--safe";
+    tag.textContent = "Aucun signal suspect";
+    signalsTags.appendChild(tag);
+    return;
+  }
+
+  activeSignals.forEach(([key, val]) => {
+    const label   = SIGNAL_LABELS[key]?.(val) ?? key;
+    const isDanger = ["has_ip_url", "has_short_url", "has_suspicious_tld",
+                      "has_credential_request", "num_links", "nb_urls"].includes(key);
+    const isWarn  = ["urgent_count", "nb_urgent_words", "nb_exclamation"].includes(key);
+    const tag = document.createElement("span");
+    tag.className   = `signal-tag signal-tag--${isDanger ? "danger" : isWarn ? "warn" : "info"}`;
+    tag.textContent = label;
+    signalsTags.appendChild(tag);
+  });
 }
 
-// ── Aperçu du sujet ──────────────────────────────────────────
-function renderEmailPreview(subject) {
-  if (!subject) return "";
-  return `
-    <div class="email-preview">
-      <p class="email-preview__label">Sujet analysé</p>
-      <p class="email-preview__text">${escapeHtml(subject.substring(0, 70))}</p>
-    </div>`;
+// ── Gestion des états (idle | scanning | dashboard | error) ──
+function showState(state) {
+  [stateIdle, stateScanning, stateError, dashboard].forEach(el => {
+    el.classList.add("hidden");
+    el.setAttribute("aria-hidden", "true");
+  });
+
+  const map = { idle: stateIdle, scanning: stateScanning, error: stateError, dashboard };
+  const target = map[state];
+  if (target) {
+    target.classList.remove("hidden");
+    target.setAttribute("aria-hidden", "false");
+  }
 }
 
-// ── Rendu d'une erreur ───────────────────────────────────────
-function renderError(message) {
-  resultEl.innerHTML = `
-    <div class="result-card result-card--error">
-      <div class="result-card__header">
-        <span class="result-card__icon">${iconWarning()}</span>
-        <span class="result-card__label">Erreur</span>
-      </div>
-      <p class="error-message">${escapeHtml(message)}</p>
-      <p class="error-message__hint">Vérifie que le serveur Django est lancé sur le port 8000.</p>
-    </div>`;
-  resultEl.classList.add("result--visible");
+// ── Erreur ────────────────────────────────────────────────────
+function showError(message) {
+  errorMsg.textContent = escapeHtml(message);
+  showState("error");
 }
 
-// ── État chargement ──────────────────────────────────────────
+// ── État chargement ───────────────────────────────────────────
 function setLoading(isLoading) {
   btnAnalyze.disabled = isLoading;
-  btnAnalyze.innerHTML = isLoading
-    ? `<span class="spinner" aria-hidden="true"></span>Analyse en cours…`
-    : "Analyser cet email";
+  const icon  = btnAnalyze.querySelector(".btn-analyze__icon");
+  const label = btnAnalyze.querySelector(".btn-analyze__label");
+
+  if (isLoading) {
+    if (icon)  icon.style.display = "none";
+    if (label) label.textContent  = "Analyse en cours…";
+    const spinner = document.createElement("span");
+    spinner.className = "spinner";
+    btnAnalyze.prepend(spinner);
+  } else {
+    const spinner = btnAnalyze.querySelector(".spinner");
+    if (spinner) spinner.remove();
+    if (icon)    icon.style.display = "";
+    if (label)   label.textContent  = "Analyser cet email";
+  }
 }
 
-function hideResult() {
-  resultEl.classList.remove("result--visible");
-  resultEl.innerHTML = "";
-}
-
-// ── Utilitaires ──────────────────────────────────────────────
-
-// Normalise le score SVM (plage ~[-3, 3]) vers [0, 100]%
+// ── Normalise score SVM (~[-3, 3]) → [0, 100] ────────────────
 function scoreToPercent(score) {
   return Math.min(100, Math.max(0, ((score + 3) / 6) * 100));
 }
 
+// ── Échappe le HTML ───────────────────────────────────────────
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -219,32 +296,10 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-// Icônes SVG inline (évite les dépendances externes)
-function iconShield(type) {
-  const colors = { danger: "#e74c3c", warn: "#f39c12", ok: "#2ecc71" };
-  const color  = colors[type] || "#7f8c8d";
-  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-    stroke="${color}" stroke-width="2" stroke-linecap="round">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-    ${type === "danger"
-      ? '<line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'
-      : type === "warn"
-      ? '<line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'
-      : '<polyline points="9 12 11 14 15 10"/>'}
-  </svg>`;
-}
-
-function iconWarning() {
-  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-    stroke="#f39c12" stroke-width="2" stroke-linecap="round">
-    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-    <line x1="12" y1="9" x2="12" y2="13"/>
-    <line x1="12" y1="17" x2="12.01" y2="17"/>
-  </svg>`;
-}
-
-// ── Init ─────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", () => {
-  checkBackendStatus();
+// ── Init ──────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", async () => {
+  await applyThemeFromStorage();
+  await checkBackendStatus();
   btnAnalyze.addEventListener("click", analyzeEmail);
+  btnSettings.addEventListener("click", openDashboard);
 });

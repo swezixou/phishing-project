@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CyberShield — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+
+  <div class="app-shell">
+
+    <!-- ══════════════════════════════════════════
+         SIDEBAR
+    ══════════════════════════════════════════ -->
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        <span class="sidebar__brand-icon material-symbols-outlined">shield_lock</span>
+        <span class="sidebar__brand-name">CyberShield</span>
+      </div>
+
+      <nav class="sidebar__nav" aria-label="Navigation principale">
+        <button class="sidebar__nav-item sidebar__nav-item--active" data-page="overview" aria-current="page">
+          <span class="material-symbols-outlined">dashboard</span>
+          <span>Vue d'ensemble</span>
+        </button>
+        <button class="sidebar__nav-item" data-page="history">
+          <span class="material-symbols-outlined">history</span>
+          <span>Historique</span>
+        </button>
+        <button class="sidebar__nav-item" data-page="settings">
+          <span class="material-symbols-outlined">settings</span>
+          <span>Paramètres</span>
+        </button>
+      </nav>
+
+      <div class="sidebar__footer">
+        <div class="sidebar__status">
+          <span class="sidebar__status-dot" id="sidebar-status-dot"></span>
+          <span class="sidebar__status-text" id="sidebar-status-text">Vérification…</span>
+        </div>
+        <span class="sidebar__version">v1.0</span>
+      </div>
+    </aside>
+
+    <!-- ══════════════════════════════════════════
+         MAIN CONTENT
+    ══════════════════════════════════════════ -->
+    <main class="main-content custom-scrollbar">
+
+      <!-- ── PAGE : VUE D'ENSEMBLE ─────────────── -->
+      <section class="page" id="page-overview">
+        <header class="page__header">
+          <div>
+            <h1 class="page__title">Vue d'ensemble</h1>
+            <p class="page__subtitle">Session de vigilance active</p>
+          </div>
+          <div class="page__header-status">
+            <span class="status-badge status-badge--online">
+              <span class="status-badge__dot"></span>
+              Modèle SVM actif
+            </span>
+          </div>
+        </header>
+
+        <!-- KPI Row -->
+        <div class="kpi-row" id="kpi-row">
+          <div class="kpi-card">
+            <span class="kpi-card__icon material-symbols-outlined">mark_email_read</span>
+            <div class="kpi-card__body">
+              <span class="kpi-card__label">Emails analysés</span>
+              <span class="kpi-card__value" id="kpi-total">0</span>
+            </div>
+          </div>
+          <div class="kpi-card kpi-card--danger">
+            <span class="kpi-card__icon material-symbols-outlined">gpp_bad</span>
+            <div class="kpi-card__body">
+              <span class="kpi-card__label">Phishing détecté</span>
+              <span class="kpi-card__value" id="kpi-phishing">0</span>
+            </div>
+          </div>
+          <div class="kpi-card kpi-card--safe">
+            <span class="kpi-card__icon material-symbols-outlined">verified_user</span>
+            <div class="kpi-card__body">
+              <span class="kpi-card__label">Sécurisés</span>
+              <span class="kpi-card__value" id="kpi-safe">0</span>
+            </div>
+          </div>
+          <div class="kpi-card kpi-card--warn">
+            <span class="kpi-card__icon material-symbols-outlined">gpp_maybe</span>
+            <div class="kpi-card__body">
+              <span class="kpi-card__label">Suspects</span>
+              <span class="kpi-card__value" id="kpi-suspect">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bar chart — 7 derniers jours -->
+        <div class="glass-card section-card">
+          <div class="section-card__header">
+            <h2 class="section-card__title">Activité — 7 derniers jours</h2>
+            <div class="chart-legend">
+              <span class="chart-legend__item chart-legend__item--primary">Sécurisés</span>
+              <span class="chart-legend__item chart-legend__item--danger">Phishing</span>
+            </div>
+          </div>
+          <div class="bar-chart" id="bar-chart">
+            <!-- Généré par JS -->
+          </div>
+        </div>
+
+        <!-- Dernière analyse -->
+        <div class="glass-card section-card" id="last-analysis-card">
+          <div class="section-card__header">
+            <h2 class="section-card__title">Dernière analyse</h2>
+          </div>
+          <div class="last-analysis" id="last-analysis">
+            <p class="empty-state">Aucune analyse effectuée pour l'instant.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── PAGE : HISTORIQUE ──────────────────── -->
+      <section class="page hidden" id="page-history">
+        <header class="page__header">
+          <div>
+            <h1 class="page__title">Historique</h1>
+            <p class="page__subtitle">Toutes les analyses de la session</p>
+          </div>
+          <button class="btn-ghost btn-ghost--danger" id="btn-clear-history">
+            <span class="material-symbols-outlined">delete_sweep</span>
+            Effacer l'historique
+          </button>
+        </header>
+
+        <div class="glass-card">
+          <div class="history-table-wrap">
+            <table class="history-table" id="history-table">
+              <thead>
+                <tr>
+                  <th>Heure</th>
+                  <th>Sujet</th>
+                  <th>Score SVM</th>
+                  <th>Risque</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody id="history-tbody">
+                <tr>
+                  <td colspan="5" class="empty-state">Aucune analyse dans l'historique.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── PAGE : PARAMÈTRES ──────────────────── -->
+      <section class="page hidden" id="page-settings">
+        <header class="page__header">
+          <div>
+            <h1 class="page__title">Paramètres</h1>
+            <p class="page__subtitle">Personnalise ton expérience CyberShield</p>
+          </div>
+        </header>
+
+        <!-- Thème -->
+        <div class="glass-card settings-section">
+          <div class="settings-section__header">
+            <span class="material-symbols-outlined settings-section__icon">palette</span>
+            <div>
+              <h2 class="settings-section__title">Thème de couleur</h2>
+              <p class="settings-section__desc">S'applique à la popup et au dashboard</p>
+            </div>
+          </div>
+          <div class="theme-grid" id="theme-grid">
+            <button class="theme-swatch theme-swatch--active" data-theme="blue" aria-label="Thème Bleu">
+              <span class="theme-swatch__dot" style="background:#3498db"></span>
+              <span class="theme-swatch__label">Bleu</span>
+              <span class="theme-swatch__check material-symbols-outlined">check_circle</span>
+            </button>
+            <button class="theme-swatch" data-theme="red" aria-label="Thème Rouge">
+              <span class="theme-swatch__dot" style="background:#e74c3c"></span>
+              <span class="theme-swatch__label">Rouge</span>
+              <span class="theme-swatch__check material-symbols-outlined">check_circle</span>
+            </button>
+            <button class="theme-swatch" data-theme="green" aria-label="Thème Vert">
+              <span class="theme-swatch__dot" style="background:#2ecc71"></span>
+              <span class="theme-swatch__label">Vert</span>
+              <span class="theme-swatch__check material-symbols-outlined">check_circle</span>
+            </button>
+            <button class="theme-swatch" data-theme="purple" aria-label="Thème Violet">
+              <span class="theme-swatch__dot" style="background:#9b59b6"></span>
+              <span class="theme-swatch__label">Violet</span>
+              <span class="theme-swatch__check material-symbols-outlined">check_circle</span>
+            </button>
+            <button class="theme-swatch" data-theme="orange" aria-label="Thème Orange">
+              <span class="theme-swatch__dot" style="background:#e67e22"></span>
+              <span class="theme-swatch__label">Orange</span>
+              <span class="theme-swatch__check material-symbols-outlined">check_circle</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Raccourci clavier -->
+        <div class="glass-card settings-section">
+          <div class="settings-section__header">
+            <span class="material-symbols-outlined settings-section__icon">keyboard</span>
+            <div>
+              <h2 class="settings-section__title">Raccourci clavier</h2>
+              <p class="settings-section__desc">Ouvre l'extension sans cliquer sur l'icône</p>
+            </div>
+          </div>
+          <div class="shortcut-config">
+            <div class="shortcut-display" id="shortcut-display">
+              <kbd class="kbd">Alt</kbd>
+              <span class="shortcut-display__sep">+</span>
+              <kbd class="kbd" id="shortcut-key-display">P</kbd>
+            </div>
+            <button class="btn-record" id="btn-record-shortcut">
+              <span class="material-symbols-outlined">fiber_manual_record</span>
+              Modifier
+            </button>
+          </div>
+          <p class="settings-note" id="shortcut-hint">
+            Le raccourci s'applique uniquement sur Gmail, Outlook et Yahoo.
+            Pour le raccourci global de l'extension, configure-le dans
+            <strong>chrome://extensions/shortcuts</strong>.
+          </p>
+          <!-- Zone d'enregistrement (cachée par défaut) -->
+          <div class="shortcut-recording hidden" id="shortcut-recording">
+            <span class="material-symbols-outlined shortcut-recording__icon">sensors</span>
+            <span class="shortcut-recording__text">Appuie sur une touche…</span>
+          </div>
+        </div>
+
+        <!-- Seuil de détection -->
+        <div class="glass-card settings-section">
+          <div class="settings-section__header">
+            <span class="material-symbols-outlined settings-section__icon">tune</span>
+            <div>
+              <h2 class="settings-section__title">Seuil de détection</h2>
+              <p class="settings-section__desc">Score SVM à partir duquel un email est marqué PHISHING</p>
+            </div>
+          </div>
+          <div class="threshold-row">
+            <input
+              type="range"
+              class="threshold-slider"
+              id="threshold-slider"
+              min="0"
+              max="3"
+              step="0.1"
+              value="1"
+              aria-label="Seuil de détection"
+            />
+            <span class="threshold-value" id="threshold-value">1.0</span>
+          </div>
+          <p class="settings-note">Valeur par défaut : 1.0. Réduire le seuil augmente la sensibilité (plus de faux positifs).</p>
+        </div>
+
+        <!-- Zone danger -->
+        <div class="glass-card settings-section settings-section--danger">
+          <div class="settings-section__header">
+            <span class="material-symbols-outlined settings-section__icon">warning</span>
+            <div>
+              <h2 class="settings-section__title">Zone de danger</h2>
+              <p class="settings-section__desc">Actions irréversibles</p>
+            </div>
+          </div>
+          <button class="btn-danger" id="btn-reset-all">
+            <span class="material-symbols-outlined">restart_alt</span>
+            Réinitialiser toutes les données
+          </button>
+        </div>
+
+      </section>
+
+    </main>
+  </div><!-- /app-shell -->
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

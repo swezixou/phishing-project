@@ -1,47 +1,139 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Phishing Detector</title>
+  <title>CyberShield</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
 
-  <!-- ── En-tête ────────────────────────────────── -->
-  <header class="header">
-    <div class="header__icon" aria-hidden="true">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <rect x="3" y="11" width="18" height="11" rx="2"/>
-        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-      </svg>
-    </div>
-    <div class="header__text">
-      <h1 class="header__title">Phishing Detector</h1>
-    </div>
-  </header>
+  <div class="popup-shell">
 
-  <!-- ── Corps principal ───────────────────────── -->
-  <main class="main">
-    <button id="btn-analyze" class="btn btn--primary" type="button">
-      Analyser cet email
-    </button>
+    <!-- ── TopAppBar ─────────────────────────────────────── -->
+    <header class="topbar">
+      <div class="topbar__brand">
+        <span class="topbar__icon material-symbols-outlined" aria-hidden="true">shield_lock</span>
+        <span class="topbar__title">CyberShield</span>
+      </div>
+      <button class="topbar__action" aria-label="Paramètres" id="btn-settings">
+        <span class="material-symbols-outlined">settings</span>
+      </button>
+    </header>
 
-    <!-- Zone résultat (cachée par défaut via CSS) -->
-    <section id="result" class="result" aria-live="polite" aria-atomic="true">
-      <!-- Injecté dynamiquement par popup.js -->
-    </section>
-  </main>
+    <!-- ── Main ──────────────────────────────────────────── -->
+    <main class="main">
 
-  <!-- ── Pied de page ──────────────────────────── -->
-  <footer class="footer">
-    <span class="footer__status">
-      <span id="status-dot" class="status-dot" aria-hidden="true"></span>
-      <span id="status-text">Vérification...</span>
-    </span>
-    <span id="model-info" class="footer__model">v1.0</span>
-  </footer>
+      <!-- Bouton d'analyse principal -->
+      <button class="btn-analyze" id="btn-analyze" type="button">
+        <span class="material-symbols-outlined btn-analyze__icon">search_check</span>
+        <span class="btn-analyze__label">Analyser cet email</span>
+      </button>
+
+      <!-- ── Zone de résultat (injectée par JS) ──── -->
+      <section
+        id="result"
+        class="result"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <!-- État vide par défaut -->
+        <div class="state-idle" id="state-idle">
+          <span class="material-symbols-outlined state-idle__icon">mark_email_unread</span>
+          <p class="state-idle__text">Ouvre un email puis lance l'analyse</p>
+        </div>
+
+        <!-- État scanning (affiché via JS) -->
+        <div class="state-scanning hidden" id="state-scanning" aria-hidden="true">
+          <div class="scanner-ring">
+            <span class="material-symbols-outlined scanner-ring__icon">cyclone</span>
+          </div>
+          <p class="state-scanning__label">Analyse heuristique en cours…</p>
+        </div>
+
+        <!-- Dashboard résultat (affiché via JS) -->
+        <div class="dashboard hidden" id="dashboard" aria-hidden="true">
+
+          <!-- Carte risque principale -->
+          <div class="risk-card" id="risk-card">
+            <div class="risk-card__header">
+              <span class="risk-card__badge" id="risk-badge">
+                <span class="material-symbols-outlined risk-card__badge-icon" id="risk-icon">gpp_bad</span>
+                <span class="risk-card__status" id="risk-status">PHISHING DÉTECTÉ</span>
+              </span>
+              <span class="risk-card__score" id="risk-score">84%</span>
+            </div>
+
+            <div class="risk-meter">
+              <div class="risk-meter__label-row">
+                <span class="risk-meter__label">Niveau de risque</span>
+                <span class="risk-meter__label" id="risk-percent">84 / 100</span>
+              </div>
+              <div class="risk-meter__track" role="progressbar" aria-valuenow="84" aria-valuemin="0" aria-valuemax="100">
+                <div class="risk-meter__fill" id="risk-bar"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Signaux de menace -->
+          <div class="signals-card">
+            <p class="signals-card__title">Signaux de menace</p>
+            <div class="signals-card__tags" id="signals-tags">
+              <!-- Injecté par JS -->
+            </div>
+          </div>
+
+          <!-- Infos email -->
+          <div class="email-card" id="email-card">
+            <span class="material-symbols-outlined email-card__icon">mail</span>
+            <div class="email-card__content">
+              <p class="email-card__label">Sujet analysé</p>
+              <p class="email-card__subject" id="email-subject">—</p>
+            </div>
+          </div>
+
+          <!-- Score technique -->
+          <div class="score-card">
+            <div class="score-card__row">
+              <span class="score-card__key">Score SVM brut</span>
+              <span class="score-card__val score-card__val--mono" id="svm-score">—</span>
+            </div>
+            <div class="score-card__row">
+              <span class="score-card__key">Modèle</span>
+              <span class="score-card__val" id="model-name">LinearSVC</span>
+            </div>
+          </div>
+
+        </div><!-- /dashboard -->
+
+        <!-- Erreur (affiché via JS) -->
+        <div class="state-error hidden" id="state-error" aria-hidden="true">
+          <span class="material-symbols-outlined state-error__icon">error_outline</span>
+          <p class="state-error__msg" id="error-msg">Une erreur est survenue.</p>
+          <p class="state-error__hint">Vérifie que Django tourne sur le port 8000.</p>
+        </div>
+
+      </section><!-- /result -->
+    </main>
+
+    <!-- ── Footer / Status Bar ────────────────────── -->
+    <footer class="statusbar">
+      <div class="statusbar__backend">
+        <span class="statusbar__dot" id="status-dot" aria-hidden="true"></span>
+        <span class="statusbar__text" id="status-text">Vérification…</span>
+      </div>
+      <div class="statusbar__actions">
+        <button class="statusbar__btn" aria-label="Aide">
+          <span class="material-symbols-outlined">help_outline</span>
+        </button>
+      </div>
+    </footer>
+
+  </div><!-- /popup-shell -->
 
   <script src="popup.js"></script>
 </body>
