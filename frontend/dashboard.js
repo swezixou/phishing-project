@@ -324,20 +324,7 @@ async function loadShortcutSettings() {
 }
 
 // ── Seuil ────────────────────────────────────────────────────
-async function loadThresholdSettings() {
-  const saved = (await store.get(STORAGE_THRESHOLD)) ?? 1.0;
-  const slider = document.getElementById("threshold-slider");
-  const display = document.getElementById("threshold-value");
 
-  slider.value   = saved;
-  display.textContent = parseFloat(saved).toFixed(1);
-
-  slider.addEventListener("input", async () => {
-    const val = parseFloat(slider.value);
-    display.textContent = val.toFixed(1);
-    await store.set(STORAGE_THRESHOLD, val);
-  });
-}
 
 // ══════════════════════════════════════════════════════════════
 // UTILS
@@ -361,7 +348,7 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-// ── Normalize score SVM → percent (copie de popup.js) ────────
+// ── Normalise score 
 function scoreToPercent(score) {
-  return Math.min(100, Math.max(0, ((score + 3) / 6) * 100));
+  return Math.min(100, Math.max(0, score * 100));
 }
