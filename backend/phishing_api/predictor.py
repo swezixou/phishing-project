@@ -8,8 +8,16 @@ from scipy.sparse import hstack, csr_matrix
 logger = logging.getLogger(__name__)
 
 ML_DIR          = os.path.join(os.path.dirname(__file__), "ml")
-MODEL_PATH      = os.path.join(ML_DIR, "SVM_model.pkl")
-VECTORIZER_PATH = os.path.join(ML_DIR, "SVMvectorizer.pkl")
+MODEL_PATH      = os.path.join(ML_DIR, "LogisticRegression_model.pkl")
+VECTORIZER_PATH = os.path.join(ML_DIR, "LgrSvectorizer.pkl")
+
+# ── Seuils de risque ─────────────────────────────────────────
+# Basés sur la probabilité de phishing renvoyée par predict_proba().
+# Modifiables ici sans toucher au reste du code ni réentraîner le modèle.
+THRESHOLD_PHISHING       = 0.85   # >= 0.85 → quasi-certain
+THRESHOLD_SUSPECT_HAUT   = 0.60   # >= 0.60 → probable, incertitude réelle
+THRESHOLD_SUSPECT_FAIBLE = 0.35   # >= 0.35 → zone grise
+# en dessous de 0.35                → SECURISE
 
 
 class PhishingPredictor:
@@ -60,13 +68,16 @@ class PhishingPredictor:
         full_vec = hstack([tfidf_vec, csr_matrix([custom])])
 
         label = int(self._model.predict(full_vec)[0])
-        score = float(self._model.decision_function(full_vec)[0])
 
-        # Même logique de seuil que dans ton notebook
-        if score > 1:
-            status = "PHISHING"
-        else:
-            status = "SECURISE"
+        # predict_proba() natif à LogisticRegression → probabilité calibrée [0, 1]
+        # proba[0] = probabilité "Légitime", proba[1] = probabilité "Phishing"
+        proba = self._model.predict_proba(full_vec)[0]
+        score = float(proba[1])
+
+        # Seuils à paliers : un score de probabilité est plus riche qu'une
+        # décision binaire. On découpe en 4 niveaux de risque, cohérents
+        # avec les classes déjà prévues côté frontend (popup.js / popup.css).
+        status = self._score_to_status(score)
 
         signals = {}
         if custom[0] > 0:
@@ -80,6 +91,22 @@ class PhishingPredictor:
             "status":    status,
             "signals":   signals,
         }
+
+    @staticmethod
+    def _score_to_status(score: float) -> str:
+        """
+        Convertit une probabilité [0, 1] en statut à 4 paliers.
+        Cohérent avec les classes CSS déjà présentes dans popup.css :
+        result-card--phishing / --suspect-haut / --suspect-faible / --legit
+        """
+        if score >= THRESHOLD_PHISHING:
+            return "PHISHING"
+        elif score >= THRESHOLD_SUSPECT_HAUT:
+            return "SUSPECT_HAUT"
+        elif score >= THRESHOLD_SUSPECT_FAIBLE:
+            return "SUSPECT_FAIBLE"
+        else:
+            return "SECURISE"
 
     @staticmethod
     def _clean_text(text: str) -> str:
