@@ -282,9 +282,9 @@ function setLoading(isLoading) {
   }
 }
 
-// ── Normalise score SVM (~[-3, 3]) → [0, 100] ────────────────
+// ── Normalise score 
 function scoreToPercent(score) {
-  return Math.min(100, Math.max(0, ((score + 3) / 6) * 100));
+  return Math.min(100, Math.max(0, score * 100));
 }
 
 // ── Échappe le HTML ───────────────────────────────────────────
