@@ -218,11 +218,6 @@ Cette démarche est strictement pédagogique et confinée à un laboratoire virt
 
 ---
 
-## 👤 Auteur
-
-**Brahimi Mohamed Aymen**
-Stage CESI/ISSI Algérie — Département Informatique, 2025/2026
-Tutrice pédagogique : Mme Maryam Chnaoui — Maître de stage : M. Youcef Benab
 
 ## 📄 Licence
 
